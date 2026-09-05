@@ -1,6 +1,10 @@
 const TIMEOUT = 60000;
 const flows = new Map();
-const keyOf = p => `${p.src}-${p.dest}-${p.proto}`;
+const keyOf = (p) => {
+  const a = `${p.src}:${p.port}`;
+  const b = `${p.dest}:${p.port}`;
+  return [a, b].sort().join("-");
+};
 
 export function updateFlow(p) {
   const now = p.time || Date.now();
@@ -20,7 +24,17 @@ export function updateFlow(p) {
   }
 
   f.lastSeen = now;
-  f.fwdPackets++; f.fwdBytes += p.size; f.fwdLens.push(p.size);
+  if (p.src === f.src) {
+  // forward
+  f.fwdPackets++;
+  f.fwdBytes += p.size;
+  f.fwdLens.push(p.size);
+} else {
+  // backward
+  f.bwdPackets++;
+  f.bwdBytes += p.size;
+  f.bwdLens.push(p.size);
+}
   f.times.push(now);
 
   if (p.flags) {

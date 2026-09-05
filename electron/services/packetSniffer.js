@@ -54,3 +54,11 @@ export function startSniffer(interfaceIndex = "5") {
     }
   });
 }
+
+export function stopSniffer() {
+  if (tsharkProcess) {
+    tsharkProcess.kill("SIGINT");
+    tsharkProcess = null;
+    console.log("🛑 Sniffer stopped");
+  }
+}

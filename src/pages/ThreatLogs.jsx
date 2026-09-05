@@ -46,6 +46,41 @@ export default function ThreatLogs() {
     }
   };
 
+  const handleExportCSV = () => {
+  if (!logs || logs.length === 0) return;
+
+  const headers = [
+    "Time",
+    "Source IP",
+    "Destination IP",
+    "Attack",
+    "Severity",
+    "Status",
+  ];
+
+  const rows = logs.map((log) => [
+    log.time,
+    log.src,
+    log.dest,
+    log.attack,
+    log.severity,
+    log.status,
+  ]);
+
+  const csvContent =
+    [headers, ...rows].map((row) => row.join(",")).join("\n");
+
+  const blob = new Blob([csvContent], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "threat_logs.csv";
+  link.click();
+
+  URL.revokeObjectURL(url);
+};
+
   useEffect(() => {
     loadLogs();
     const interval = setInterval(loadLogs, 5000);
@@ -70,31 +105,7 @@ export default function ThreatLogs() {
   }, [severityFilter, search, logs]);
 
 
-  function exportToCSV(rows) {
-    const headers = [
-      "Time",
-      "Source IP",
-      "Destination IP",
-      "Attack",
-      "Severity",
-      "Action",
-    ];
-
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((t) =>
-        [t.time, t.src, t.dest, t.attack, t.severity, t.status].join(",")
-      ),
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "shieldeye_threat_logs.csv";
-    a.click();
-  }
+  
 
   // ⭐ severity counts now dynamic
   const highCount = logs.filter((t) => t.severity === "High").length;
@@ -153,7 +164,7 @@ export default function ThreatLogs() {
 
           {/* Export */}
           <button
-            onClick={() => exportToCSV(filtered)}
+            onClick={handleExportCSV}
             className="group bg-cyan-500/20 border border-cyan-400/50 text-cyan-200 text-sm font-semibold px-5 py-3
             rounded-xl hover:bg-cyan-500/30 hover:shadow-xl hover:shadow-cyan-500/30 transition-all duration-300
             flex items-center gap-2 relative overflow-hidden"

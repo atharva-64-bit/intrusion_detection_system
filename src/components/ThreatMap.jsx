@@ -9,6 +9,7 @@ import {
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import authFetch from "../utils/authFetch";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -20,71 +21,7 @@ L.Icon.Default.mergeOptions({
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
 
-const threatLocations = [
-  {
-    id: 1,
-    lat: 51.5074,
-    lng: -0.1278,
-    city: "London, UK",
-    ip: "91.22.14.88",
-    threat: "DDoS Attack",
-    severity: "High",
-  },
-  {
-    id: 2,
-    lat: 40.7128,
-    lng: -74.006,
-    city: "New York, USA",
-    ip: "203.91.44.10",
-    threat: "Port Scan",
-    severity: "Medium",
-  },
-  {
-    id: 3,
-    lat: 35.6762,
-    lng: 139.6503,
-    city: "Tokyo, Japan",
-    ip: "88.12.44.231",
-    threat: "Brute Force",
-    severity: "High",
-  },
-  {
-    id: 4,
-    lat: 52.52,
-    lng: 13.405,
-    city: "Berlin, Germany",
-    ip: "156.22.19.33",
-    threat: "SQLi Attempt",
-    severity: "Medium",
-  },
-  {
-    id: 5,
-    lat: 37.7749,
-    lng: -122.4194,
-    city: "San Francisco, USA",
-    ip: "34.110.22.80",
-    threat: "XSS",
-    severity: "Low",
-  },
-  {
-    id: 6,
-    lat: 19.076,
-    lng: 72.8777,
-    city: "Mumbai, India",
-    ip: "103.44.99.18",
-    threat: "Phishing",
-    severity: "Medium",
-  },
-  {
-    id: 7,
-    lat: 55.7558,
-    lng: 37.6173,
-    city: "Moscow, Russia",
-    ip: "201.88.14.5",
-    threat: "Malware",
-    severity: "High",
-  },
-];
+
 
 // force scroll zoom ON
 function EnableScrollZoom() {
@@ -128,24 +65,34 @@ function ClampToBounds() {
 export default function ThreatMap() {
   const [activeThreats, setActiveThreats] = useState([]);
 
-  useEffect(() => {
-    setActiveThreats(threatLocations);
+ useEffect(() => {
+  const loadThreats = async () => {
+    try {
+      const data = await authFetch("http://localhost:5000/api/threats");
 
-    const interval = setInterval(() => {
-      const randomIndex = Math.floor(Math.random() * threatLocations.length);
-      setActiveThreats((prev) => {
-        const updated = [...prev];
-        updated[randomIndex] = {
-          ...updated[randomIndex],
-          pulse: Date.now(),
-        };
-        return updated;
-      });
-    }, 3000);
+      const mapped = data
+        .filter(t => t.geoLat && t.geoLon)
+        .map((t, index) => ({
+          id: index,
+           lat: Number(t.geoLat),   // 🔥 IMPORTANT
+           lng: Number(t.geoLon),   // 🔥 IMPORTANT
+          city: t.geoCountry || "Unknown",
+          ip: t.src,
+          threat: t.attack,
+          severity: t.severity,
+        }));
 
-    return () => clearInterval(interval);
-  }, []);
+      setActiveThreats(mapped);
+    } catch (err) {
+      console.error("Map load error", err);
+    }
+  };
 
+  loadThreats();
+
+  const interval = setInterval(loadThreats, 5000);
+  return () => clearInterval(interval);
+}, []);
   const getSeverityColor = (severity) => {
     if (severity === "High") return "#ef4444";
     if (severity === "Medium") return "#f59e0b";
@@ -194,6 +141,8 @@ export default function ThreatMap() {
     iconAnchor: [10, 10],
   });
 };
+
+
 
 
 

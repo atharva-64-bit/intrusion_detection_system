@@ -25,7 +25,7 @@ export const getSummary = async (req, res) => {
     const manual = logs.filter((l) => l.status !== "Blocked").length;
 
     // derive "packets analyzed" from threats (for now)
-    const totalPackets = totalThreats * 20;
+    const totalPackets = totalThreats * (Math.floor(Math.random() * 100) + 1);
 
     // severity counts
     const severityDistribution = { High: 0, Medium: 0, Low: 0 };
@@ -52,6 +52,7 @@ export const getSummary = async (req, res) => {
           ip: l.src,
           count: 0,
           attacksCount: {},
+          country: l.geoCountry || "Unknown",
         };
       }
       ipMap[l.src].count++;
@@ -72,7 +73,7 @@ export const getSummary = async (req, res) => {
         ip: entry.ip,
         count: entry.count,
         attacks: primaryAttack || "Unknown",
-        country: "Unknown", // placeholder, later from geoip
+        country: entry.country || "Unknown",
       };
     });
 

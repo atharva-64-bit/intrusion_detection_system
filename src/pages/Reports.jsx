@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useMemo } from "react";
 import Plot from "react-plotly.js";
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import Plotly from "plotly.js-dist";
 import { FileText, Download, Calendar, TrendingUp } from "lucide-react";
 import authFetch from "../utils/authFetch";
 
@@ -11,22 +11,135 @@ export default function Reports() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const reportRef = useRef(null);
+  const attackChartRef = useRef(null);
+  const severityChartRef = useRef(null);
 
   const handleExportPDF = async () => {
-    const element = reportRef.current;
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      backgroundColor: "#0c0f13",
-    });
+  if (!summary) return;
 
-    const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF("p", "mm", "a4");
-    const imgWidth = 210;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  const pdf = new jsPDF();
+  const metrics = summary.metrics;
 
-    pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
-    pdf.save("shieldeye_report.pdf");
-  };
+  let y = 20;
+
+  // ================= HEADER =================
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(20);
+  pdf.text("ShieldEye IDS Report", 105, y, { align: "center" });
+
+  y += 8;
+  pdf.setFontSize(10);
+  pdf.setTextColor(100);
+  pdf.text(`Generated on: ${new Date().toLocaleString()}`, 105, y, {
+    align: "center",
+  });
+
+  y += 15;
+
+  // ================= SUMMARY BOX =================
+  pdf.setDrawColor(200);
+  pdf.rect(14, y, 180, 35);
+
+  pdf.setFontSize(12);
+  pdf.setTextColor(0);
+  pdf.text("Summary", 18, y + 8);
+
+  pdf.setFontSize(10);
+
+  pdf.text(`Total Packets: ${metrics.totalPackets}`, 18, y + 16);
+  pdf.text(`Total Threats: ${metrics.totalThreats}`, 18, y + 22);
+
+  pdf.text(`Blocked: ${metrics.blocked}`, 100, y + 16);
+  pdf.text(`Manual: ${metrics.manual}`, 100, y + 22);
+
+  y += 45;
+
+  // ================= ATTACK CHART =================
+  pdf.setFontSize(12);
+  pdf.text("Attack Categories", 14, y);
+
+  y += 5;
+
+  const attackImg = await Plotly.toImage(
+    attackChartRef.current?.el || attackChartRef.current,
+    { format: "png", width: 600, height: 300 }
+  );
+
+  pdf.addImage(attackImg, "PNG", 20, y, 170, 80);
+
+  y += 90;
+
+  // ================= PAGE BREAK =================
+  pdf.addPage();
+  y = 20;
+
+  // ================= SEVERITY CHART =================
+  pdf.setFontSize(12);
+  pdf.text("Severity Distribution", 14, y);
+
+  y += 5;
+
+  const severityImg = await Plotly.toImage(
+    severityChartRef.current?.el || severityChartRef.current,
+    { format: "png", width: 600, height: 300 }
+  );
+
+  pdf.addImage(severityImg, "PNG", 30, y, 150, 90);
+
+  y += 110;
+
+  // ================= TABLE =================
+  pdf.setFontSize(12);
+  pdf.text("Top Malicious IPs", 14, y);
+
+  y += 8;
+
+  // Table Header
+  pdf.setFont("helvetica", "bold");
+  pdf.text("IP", 14, y);
+  pdf.text("Country", 70, y);
+  pdf.text("Attack", 120, y);
+  pdf.text("Count", 170, y);
+
+  y += 5;
+  pdf.setLineWidth(0.3);
+  pdf.line(14, y, 195, y);
+
+  y += 5;
+
+  pdf.setFont("helvetica", "normal");
+
+  summary.topIps.forEach((row) => {
+    pdf.text(row.ip, 14, y);
+    pdf.text(row.country || "Unknown", 70, y);
+    pdf.text(row.attacks, 120, y);
+    pdf.text(String(row.count), 170, y);
+
+    y += 7;
+
+    if (y > 270) {
+      pdf.addPage();
+      y = 20;
+    }
+  });
+
+  // ================= FOOTER =================
+  const pageCount = pdf.getNumberOfPages();
+
+  for (let i = 1; i <= pageCount; i++) {
+    pdf.setPage(i);
+    pdf.setFontSize(9);
+    pdf.setTextColor(150);
+    pdf.text(
+      `ShieldEye IDS • Page ${i} of ${pageCount}`,
+      105,
+      290,
+      { align: "center" }
+    );
+  }
+
+  pdf.save("ShieldEye_Report.pdf");
+};
 
   // --- LOAD SUMMARY FROM BACKEND ---
   useEffect(() => {
@@ -181,20 +294,7 @@ export default function Reports() {
             </select>
           </div>
 
-          <button
-            onClick={handleExportPDF}
-            className="group bg-cyan-500/20 border border-cyan-400/50 text-cyan-200 text-sm font-semibold px-5 py-3
-            rounded-xl hover:bg-cyan-500/30 hover:shadow-xl hover:shadow-cyan-500/30 transition-all duration-300
-            flex items-center gap-2 relative overflow-hidden"
-          >
-            <div
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent
-              opacity-0 group-hover:opacity-100 translate-x-[-100%] group-hover:translate-x-[100%]
-              transition-all duration-700"
-            ></div>
-            <Download className="w-4 h-4 relative z-10" />
-            <span className="relative z-10">Export PDF</span>
-          </button>
+
         </div>
       </div>
 
@@ -248,6 +348,7 @@ export default function Reports() {
               Attack Categories ({range})
             </h3>
             <Plot
+              ref={attackChartRef}
               data={attackCategoriesData}
               layout={{
                 ...sharedPlotLayout,
@@ -277,6 +378,7 @@ export default function Reports() {
                 </p>
               </div>
               <Plot
+                ref={severityChartRef}
                 data={severityDistributionData}
                 layout={severityLayout}
                 config={{ displayModeBar: false, responsive: true }}

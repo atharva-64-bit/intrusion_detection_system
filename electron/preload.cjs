@@ -8,3 +8,11 @@ contextBridge.exposeInMainWorld("shieldEye", {
   },
 });
 
+contextBridge.exposeInMainWorld("mlAPI", {
+  predict: (features) => ipcRenderer.invoke("ml-predict", features),
+});
+
+contextBridge.exposeInMainWorld("snifferAPI", {
+  start: () => ipcRenderer.invoke("sniffer:start"),
+  stop: () => ipcRenderer.invoke("sniffer:stop"),
+});

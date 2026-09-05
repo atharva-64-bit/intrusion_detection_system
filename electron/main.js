@@ -1,12 +1,12 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { startSniffer } from "./services/packetSniffer.js";
+import { startSniffer, stopSniffer } from "./services/packetSniffer.js";
 import { getBestInterface } from "./services/interfaceSelector.js";
 import { tsharkProcess } from "./services/packetSniffer.js";
+import { runML } from "./services/mlService.js";
 
 const iface = getBestInterface();
-
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,15 +38,27 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow();
 
-  // ✅ Start sniffer and forward packets to renderer
-  
-  startSniffer(iface, (packet) => {
-    if (mainWindow && mainWindow.webContents) {
-      mainWindow.webContents.send("live-packet", packet);
-    }
+  // ✅ Start sniffer ON by default
+  startSniffer(iface);
+  console.log("Packet sniffer started");
+
+  // ✅ IPC: Start Sniffer (from button)
+  ipcMain.handle("sniffer:start", () => {
+    startSniffer(iface);
+    return "started";
   });
 
-  console.log("Packet sniffer started");
+  // ✅ IPC: Stop Sniffer (from button)
+  ipcMain.handle("sniffer:stop", () => {
+    stopSniffer();
+    return "stopped";
+  });
+
+  // ✅ ML Prediction
+  ipcMain.handle("ml-predict", async (_event, features) => {
+    const result = await runML(features);
+    return result;
+  });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -63,3 +75,4 @@ app.on("before-quit", () => {
     console.log("🛑 tshark stopped");
   }
 });
+

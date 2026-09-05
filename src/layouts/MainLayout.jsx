@@ -8,6 +8,7 @@ import {
   Shield,
   Power,
   User,
+  CheckCircle,
 } from "lucide-react";
 import { useState, useEffect } from "react"; 
 import AuthModal from "../components/AuthModal"; // Import the new modal
@@ -21,6 +22,7 @@ const links = [
   { to: "/logs", label: "Threat Logs", icon: FileText },
   { to: "/reports", label: "Reports", icon: BarChart3 },
   { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/validation", label: "Attack Validation", icon: CheckCircle },
 ];
 
 export default function MainLayout() {
@@ -80,6 +82,20 @@ export default function MainLayout() {
     // Pass the success handler to the modal
     return <AuthModal handleLoginSuccess={handleLoginSuccess} />;
   }
+
+  const toggleProtection = async () => {
+  try {
+    if (isProtected) {
+      await window.snifferAPI.stop();   // 🛑 stop
+    } else {
+      await window.snifferAPI.start();  // ▶ start
+    }
+
+    setIsProtected(!isProtected); // toggle UI
+  } catch (err) {
+    console.error("Sniffer toggle failed:", err);
+  }
+};
 
   // --- RENDER MAIN LAYOUT IF AUTHENTICATED ---
   return (
@@ -237,7 +253,7 @@ export default function MainLayout() {
             <div className="flex items-center gap-4">
                 {/* 1. Protection Status Button (Existing Logic) */}
                 <div
-                    onClick={() => setIsProtected(!isProtected)}
+                    onClick={toggleProtection}
                     className={`group relative flex cursor-pointer items-center gap-3 rounded-xl 
                         px-5 py-3 text-sm font-semibold uppercase tracking-[0.08em] transition-all duration-300 
                         ${
